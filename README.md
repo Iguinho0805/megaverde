@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meu Jogo na Mega-Sena</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* Reset básico e fonte */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Poppins', Arial, sans-serif;
+      background: linear-gradient(135deg, #1b3a2a, #3a7d44, #b9d97c);
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: #f0f0f0;
+      position: relative;
+      padding: 40px 20px 60px;
+    }
+
+    /* Canvas para partículas no fundo */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 0.15;
+    }
+
+    /* Conteúdo principal acima das partículas */
+    .content-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      background: rgba(10, 40, 10, 0.9);
+      border-radius: 18px;
+      padding: 30px 40px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      font-size: 3rem;
+      margin-bottom: 15px;
+      color: #d7e8c1;
+      text-shadow: 1px 1px 6px rgba(0,0,0,0.6);
+      letter-spacing: 1.2px;
+    }
+
+    /* Seus números */
+    .meus-numeros-container {
+      text-align: center;
+      margin-bottom: 30px;
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: #c3deb6;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .numeros {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .numero {
+      background: #8fc679;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      color: #12390d;
+      font-weight: 700;
+      font-size: 1.3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(82,141,28,0.7);
+      cursor: default;
+      user-select: none;
+      transform: scale(0);
+      animation: fadeScaleIn 0.5s forwards;
+    }
+
+    .numero.acertou {
+      background: #f9d342;
+      color: #2b3d04;
+      box-shadow: 0 0 12px 3px #f9d342;
+      font-size: 1.4rem;
+      font-weight: 800;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .numero.acertou:hover {
+      box-shadow: 0 0 20px 6px #fff176;
+      transform: scale(1.15);
+      transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+
+    /* Container principal com flex */
+    .container-principal {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* Histórico de sorteios */
+    #historicoSorteios {
+      flex: 1 1 420px;
+      max-width: 600px;
+      overflow-y: auto;
+      max-height: 650px;
+      padding-right: 8px;
+    }
+
+    /* Cartões de sorteios */
+    .sorteio-info {
+      background: #225522;
+      border-radius: 14px;
+      padding: 20px 25px;
+      margin-bottom: 22px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: default;
+    }
+
+    .sorteio-info:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7);
+    }
+
+    .titulo-sorteio {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #f9f9f9;
+      text-shadow: 0 0 4px rgba(255,255,255,0.25);
+    }
+
+    .dezenas {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+      justify-content: center;
+    }
+
+    .premio {
+      font-size: 1rem;
+      color: #c9dba9;
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+
+    /* Toggle detalhes */
+    .detalhes-toggle {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #f9d342;
+      cursor: pointer;
+      user-select: none;
+      margin-top: 12px;
+      display: inline-block;
+      transition: color 0.25s ease;
+    }
+
+    .detalhes-toggle:hover {
+      color: #fff176;
+      text-decoration: underline;
+    }
+
+    .detalhes {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: #dceec7;
+      line-height: 1.4;
+      display: none;
+      border-left: 3px solid #f9d342;
+      padding-left: 12px;
+      user-select: text;
+      white-space: pre-wrap;
+    }
+
+    /* Gráfico */
+    #grafico-container {
+      flex: 1 1 350px;
+      max-width: 500px;
+      background: #2b552b;
+      border-radius: 14px;
+      padding: 22px 30px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    }
+
+    #grafico-container h2 {
+      color: #f9d342;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 24px;
+      text-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Scrollbar estilizada para histórico */
+    #historicoSorteios::-webkit-scrollbar {
+      width: 8px;
+    }
+    #historicoSorteios::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #historicoSorteios::-webkit-scrollbar-thumb {
+      background-color: #8fc679;
+      border-radius: 10px;
+    }
+
+    /* Animações */
+    @keyframes fadeScaleIn {
+      0% {opacity: 0; transform: scale(0);}
+      100% {opacity: 1; transform: scale(1);}
+    }
+
+    /* Responsivo */
+    @media (max-width: 850px) {
+      .container-principal {
+        flex-direction: column;
+        align-items: center;
+      }
+      #historicoSorteios, #grafico-container {
+        max-width: 100%;
+        flex-basis: auto;
+        max-height: none;
+      }
+      body {
+        padding: 20px 10px 40px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Canvas para partículas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <div class="content-wrapper">
+    <h1>Resultados da Mega-Sena</h1>
+
+    <div class="meus-numeros-container">
+      <strong>Seus números:</strong>
+      <div class="numeros" id="meusNumeros"></div>
+    </div>
+
+    <hr style="border-color: #607d3b; margin-bottom: 30px;" />
+
+    <div class="container-principal">
+      <div id="historicoSorteios"></div>
+
+      <div id="grafico-container">
+        <h2>Seus acertos nos últimos concursos</h2>
+        <canvas id="graficoAcertos"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // PARTICULAS NO FUNDO
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particlesArray = [];
+    const colors = ['#c3deb6', '#e1f1c5', '#f9d342'];
+
+    function initParticles() {
+      particlesArray = [];
+      const count = Math.floor(window.innerWidth / 15);
+      for (let i = 0; i < count; i++) {
+        particlesArray.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          radius: Math.random() * 1.5 + 0.5,
+          speedX: (Math.random() - 0.5) * 0.3,
+          speedY: (Math.random() - 0.5) * 0.3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          alpha: Math.random() * 0.7 + 0.3
+        });
+      }
+    }
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particlesArray.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${hexToRgb(p.color)},${p.alpha})`;
+        ctx.fill();
+
+        p.x += p.speedX;
+        p.y += p.speedY;
+
+        // rebote nas bordas
+        if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+      });
+      requestAnimationFrame(animateParticles);
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace('#','');
+      const bigint = parseInt(hex,16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `${r},${g},${b}`;
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles();
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+    });
+
+    resizeCanvas();
+    animateParticles();
+
+    // MEUS NÚMEROS
+    const meusNumeros = [4, 7, 25, 39, 44, 53];
+    const acertosPorConcurso = [];
+
+    const faixaMap = {
+      1: 'Sena',
+      2: 'Quina',
+      3: 'Quadra'
+    };
+
+    function mostrarMeusNumeros() {
+      const c = document.getElementById('meusNumeros');
+      c.innerHTML = '';
+      meusNumeros.forEach(n => {
+        const d = document.createElement('div');
+        d.classList.add('numero');
+        d.textContent = n;
+        c.appendChild(d);
+      });
+    }
+
+    function formatarValor(valor) {
+      return parseFloat(valor).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    }
+
+    function estimarCDB(valor) {
+      const taxaMensal = 0.0079;
+      return valor * taxaMensal;
+    }
+
+    function mostrarSorteio(s) {
+      const c = document.getElementById('historicoSorteios');
+      const div = document.createElement('div');
+      div.classList.add('sorteio-info');
+
+      const acertos = s.listaDezenas.filter(num => meusNumeros.includes(Number(num)));
+      acertosPorConcurso.push({ concurso: s.numero, acertos: acertos.length });
+
+      div.innerHTML = `
+        <div class="titulo-sorteio">Concurso ${s.numero} - ${s.dataApuracao}</div>
+        <p><strong>Dezenas sorteadas:</strong></p>
+      `;
+
+      const dezenasDiv = document.createElement('div');
+      dezenasDiv.classList.add('dezenas');
+      s.listaDezenas.forEach(num => {
+        const nd = document.createElement('div');
+        nd.classList.add('numero');
+        if (meusNumeros.includes(Number(num))) nd.classList.add('acertou');
+        nd.textContent = num;
+        dezenasDiv.appendChild(nd);
+      });
+
+      div.appendChild(dezenasDiv);
+
+      let premiacaoHtml = '';
+      if (s.listaRateioPremio) {
+        premiacaoHtml += `<div class="premio"><strong>Premiação:</strong><ul>`;
+        s.listaRateioPremio.forEach(p => {
+          const ganhadores = p.quantidadeGanhadores ?? p.numeroDeGanhadores ?? 'Aguardando apuração';
+          const faixa = faixaMap[p.faixa] || p.faixa;
+          premiacaoHtml += `<li>${faixa}: ${ganhadores} ganhador(es) - R$ ${formatarValor(p.valorPremio)}</li>`;
+        });
+        premiacaoHtml += `</ul></div>`;
+      }
+
+      premiacaoHtml += `<div class="premio"><strong>Você acertou:</strong> ${acertos.length} número(s)</div>`;
+
+      premiacaoHtml += `
+        <div class="detalhes-toggle" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">Ver detalhes</div>
+        <div class="detalhes">
+          ${s.acumulado ? '<p><strong>Acumulado!</strong></p>' : ''}
+          <p>Prêmio estimado próximo concurso: R$ ${formatarValor(s.valorEstimadoProximoConcurso || 0)}</p>
+          <p>Rendimento estimado/mês (CDB 105% CDI): R$ ${formatarValor(estimarCDB(s.valorEstimadoProximoConcurso || 0))}</p>
+        </div>
+      `;
+
+      div.innerHTML += premiacaoHtml;
+      c.appendChild(div);
+    }
+
+    function exibirGrafico() {
+      const ctx = document.getElementById('graficoAcertos').getContext('2d');
+      const labels = acertosPorConcurso.map(item => `Conc. ${item.concurso}`);
+      const dados = acertosPorConcurso.map(item => item.acertos);
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Acertos por concurso',
+            data: dados,
+            borderColor: '#f9d342',
+            backgroundColor: 'rgba(249, 211, 66, 0.35)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 6,
+            pointBackgroundColor: '#f9d342',
+            borderWidth: 3,
+            cubicInterpolationMode: 'monotone',
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              stepSize: 1,
+              max: 6,
+              ticks: {
+                color: '#f9d342',
+                font: {weight: '600', size: 14}
+              },
+              grid: {
+                color: 'rgba(249, 211, 66, 0.2)'
+              }
+            },
+            x: {
+              ticks: {
+                color: '#d7e8c1',
+                font: {weight: '600', size: 13}
+              },
+              grid: {
+                color: 'rgba(255,255,255,0.07)'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: '#f9d342',
+                font: {weight: '600', size: 14}
+              }
+            },
+            tooltip: {
+              backgroundColor: '#3a7d44',
+              titleColor: '#f9d342',
+              bodyColor: '#e1f1c5',
+              cornerRadius: 6,
+              padding: 8,
+            }
+          }
+        }
+      });
+    }
+
+    async function carregarUltimos5Sorteios() {
+      try {
+        const concursos = [];
+        const urlBase = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena/';
+        const proxyBase = 'https://api.allorigins.win/raw?url=';
+
+        const res = await fetch(proxyBase + encodeURIComponent(urlBase));
+        const atual = await res.json();
+        concursos.push(atual);
+
+        for (let i = 1; i <= 4; i++) {
+          const numeroConcurso = atual.numero - i;
+          const resAnt = await fetch(proxyBase + encodeURIComponent(urlBase + numeroConcurso));
+          const dataAnt = await resAnt.json();
+          concursos.push(dataAnt);
+        }
+
+        concursos.forEach(s => mostrarSorteio(s));
+        exibirGrafico();
+      } catch (e) {
+        console.error('Erro ao carregar dados da Mega-Sena:', e);
+        const container = document.getElementById('historicoSorteios');
+        container.innerHTML = '<p style="color:#ff5555; text-align:center;">Não foi possível carregar os resultados. Tente novamente mais tarde.</p>';
+      }
+    }
+
+    mostrarMeusNumeros();
+    carregarUltimos5Sorteios();
+  </script>
+</body>
+</html>
